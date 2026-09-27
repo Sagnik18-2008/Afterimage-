@@ -2,83 +2,84 @@ using UnityEngine;
 
 namespace Afterimage.Player
 {
-    public class PlayerInputController : MonoBehaviour
+    [RequireComponent(typeof(CharacterController))]
+    public class PlayerController : MonoBehaviour
     {
-        [SerializeField] private PlayerController playerController;
+        [Header("Movement")]
+        [SerializeField] private float normalSpeed = 8f;
+        [SerializeField] private float boostSpeed = 14f;
+        [SerializeField] private float acceleration = 6f;
+        [SerializeField] private float rotationSpeed = 8f;
+        [SerializeField] private float verticalMoveSpeed = 4f;
+        [SerializeField] private float boostDuration = 1.2f;
 
-        private Vector2 dragOrigin;
-        private bool dragging;
+        private CharacterController controller;
+        private Vector3 moveInput;
+        private float depthTarget;
+        private float boostTimer;
+        private Vector3 velocity;
+
+        public float CurrentSpeed => boostTimer > 0f ? boostSpeed : normalSpeed;
+        public bool IsBoosting => boostTimer > 0f;
+
+        private void Awake()
+        {
+            controller = GetComponent<CharacterController>();
+            if (controller == null)
+            {
+                controller = gameObject.AddComponent<CharacterController>();
+            }
+
+            controller.enableOverlapRecovery = true;
+            controller.height = 1.8f;
+            controller.radius = 0.3f;
+            controller.center = new Vector3(0f, 0.9f, 0f);
+        }
 
         private void Update()
         {
-            if (playerController == null)
+            if (boostTimer > 0f)
             {
-                return;
+                boostTimer -= Time.deltaTime;
             }
 
-            Vector2 moveInput = Vector2.zero;
-
-            if (Input.touchCount > 0)
+            Vector3 inputDirection = Vector3.zero;
+            if (moveInput.sqrMagnitude > 0.01f)
             {
-                Touch touch = Input.GetTouch(0);
-                if (touch.phase == TouchPhase.Began)
-                {
-                    dragOrigin = touch.position;
-                    dragging = true;
-                }
-                else if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary)
-                {
-                    if (dragging)
-                    {
-                        Vector2 delta = touch.position - dragOrigin;
-                        moveInput = new Vector2(delta.x, delta.y).normalized * 1.5f;
-                    }
-                }
-                else if (touch.phase == TouchPhase.Ended)
-                {
-                    dragging = false;
-                }
-            }
-            else if (Input.GetMouseButtonDown(0))
-            {
-                dragOrigin = Input.mousePosition;
-                dragging = true;
-            }
-            else if (Input.GetMouseButton(0) && dragging)
-            {
-                Vector2 delta = (Vector2)Input.mousePosition - dragOrigin;
-                moveInput = new Vector2(delta.x, delta.y).normalized * 1.5f;
-            }
-            else if (Input.GetMouseButtonUp(0))
-            {
-                dragging = false;
+                inputDirection = transform.forward * moveInput.z + transform.right * moveInput.x;
+                inputDirection = Vector3.ClampMagnitude(inputDirection, 1f);
             }
 
-            if (Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.01f)
-            {
-                moveInput.y += Input.GetAxisRaw("Vertical");
-            }
+            float targetX = Mathf.Lerp(velocity.x, inputDirection.x * CurrentSpeed, Time.deltaTime * acceleration);
+            float targetZ = Mathf.Lerp(velocity.z, inputDirection.z * CurrentSpeed, Time.deltaTime * acceleration);
+            float targetY = Mathf.Lerp(velocity.y, depthTarget * verticalMoveSpeed, Time.deltaTime * acceleration);
 
-            playerController.SetMoveInput(moveInput);
+            velocity = new Vector3(targetX, targetY, targetZ);
+            controller.Move(velocity * Time.deltaTime);
 
-            float depthInput = 0f;
-            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+            if (moveInput.sqrMagnitude > 0.01f)
             {
-                depthInput = 1f;
+                float yaw = Mathf.Atan2(moveInput.x, moveInput.z) * Mathf.Rad2Deg;
+                Quaternion desiredRotation = Quaternion.Euler(0f, yaw, 0f);
+                transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, Time.deltaTime * rotationSpeed);
             }
-            else if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
-            {
-                depthInput = -1f;
-            }
+        }
 
-            if (depthInput != 0f)
-            {
-                playerController.SetDepthInput(depthInput);
-            }
+        public void SetMoveInput(Vector2 input)
+        {
+            moveInput = new Vector3(input.x, 0f, input.y);
+        }
 
-            if (Input.GetKeyDown(KeyCode.Space) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Ended))
+        public void SetDepthInput(float value)
+        {
+            depthTarget = Mathf.Clamp(value, -1f, 1f);
+        }
+
+        public void TriggerBoost()
+        {
+            if (boostTimer <= 0f)
             {
-                playerController.TriggerBoost();
+                boostTimer = boostDuration;
             }
         }
     }

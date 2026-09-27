@@ -1,10 +1,9 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Afterimage.Afterimage
 {
-    [Serializable]
+    [System.Serializable]
     public class RecordedFrame
     {
         public Vector3 Position;
@@ -18,17 +17,15 @@ namespace Afterimage.Afterimage
     public class AfterimageRecorder : MonoBehaviour
     {
         [Header("Recording")]
+        [SerializeField] private Transform target;
         [SerializeField] private float recordInterval = 0.1f;
         [SerializeField] private float maxRecordingDuration = 25f;
-        [SerializeField] private bool autoRecordOnStart = true;
+        [SerializeField] private bool recordOnStart = true;
 
-        [Header("Runtime")]
-        [SerializeField] private Transform target;
-
+        private readonly List<RecordedFrame> recordedFrames = new();
         private float timer;
         private float elapsedTime;
         private bool isRecording;
-        private readonly List<RecordedFrame> recordedFrames = new();
         private string lastAction = "swim";
 
         public IReadOnlyList<RecordedFrame> RecordedFrames => recordedFrames;
@@ -36,7 +33,7 @@ namespace Afterimage.Afterimage
 
         private void Start()
         {
-            if (autoRecordOnStart)
+            if (recordOnStart)
             {
                 StartRecording();
             }
@@ -60,7 +57,7 @@ namespace Afterimage.Afterimage
                     Position = target.position,
                     Rotation = target.rotation,
                     Time = elapsedTime,
-                    Speed = GetSpeedApproximation(),
+                    Speed = CalculateSpeed(),
                     Depth = target.position.y,
                     MajorActions = lastAction
                 });
@@ -90,9 +87,9 @@ namespace Afterimage.Afterimage
             lastAction = string.IsNullOrEmpty(action) ? "swim" : action;
         }
 
-        private float GetSpeedApproximation()
+        private float CalculateSpeed()
         {
-            return Vector3.Distance(target.position, target.position + target.forward * Time.deltaTime) / Time.deltaTime;
+            return Mathf.Clamp(Vector3.Distance(target.position, target.position + (target.forward * Time.deltaTime)) / Time.deltaTime, 0f, 40f);
         }
     }
 }

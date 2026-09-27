@@ -1,37 +1,78 @@
 using UnityEngine;
 
-namespace Afterimage.Afterimage
+namespace Afterimage.Player
 {
-    public interface IAfterimageInteractable
+    public class PlayerInputController : MonoBehaviour
     {
-        void OnAfterimageTriggered(AfterimagePlayback afterimage);
-    }
+        [SerializeField] private PlayerController playerController;
 
-    public class PressurePlate : MonoBehaviour, IAfterimageInteractable
-    {
-        [SerializeField] private bool active;
-        [SerializeField] private float resetDelay = 1f;
-
-        private float timer;
-
-        public void OnAfterimageTriggered(AfterimagePlayback afterimage)
-        {
-            active = true;
-            timer = resetDelay;
-            Debug.Log("Pressure plate activated by afterimage.");
-        }
+        private Vector2 dragOrigin;
+        private bool dragging;
 
         private void Update()
         {
-            if (!active)
+            if (playerController == null)
             {
                 return;
             }
 
-            timer -= Time.deltaTime;
-            if (timer <= 0f)
+            Vector2 moveInput = Vector2.zero;
+
+            if (Input.touchCount > 0)
             {
-                active = false;
+                Touch touch = Input.GetTouch(0);
+                if (touch.phase == TouchPhase.Began)
+                {
+                    dragOrigin = touch.position;
+                    dragging = true;
+                }
+                else if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary)
+                {
+                    if (dragging)
+                    {
+                        Vector2 delta = touch.position - dragOrigin;
+                        moveInput = new Vector2(delta.x, delta.y).normalized * 1.5f;
+                    }
+                }
+                else if (touch.phase == TouchPhase.Ended)
+                {
+                    dragging = false;
+                }
+            }
+            else if (Input.GetMouseButtonDown(0))
+            {
+                dragOrigin = Input.mousePosition;
+                dragging = true;
+            }
+            else if (Input.GetMouseButton(0) && dragging)
+            {
+                Vector2 delta = (Vector2)Input.mousePosition - dragOrigin;
+                moveInput = new Vector2(delta.x, delta.y).normalized * 1.5f;
+            }
+            else if (Input.GetMouseButtonUp(0))
+            {
+                dragging = false;
+            }
+
+            if (Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.01f)
+            {
+                moveInput.y += Input.GetAxisRaw("Vertical");
+            }
+
+            playerController.SetMoveInput(moveInput);
+
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+            {
+                playerController.SetDepthInput(1f);
+            }
+            else if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+            {
+                playerController.SetDepthInput(-1f);
+            }
+
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                playerController.TriggerBoost();
             }
         }
     }

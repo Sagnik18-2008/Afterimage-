@@ -5,6 +5,8 @@ namespace Afterimage.Afterimage
 {
     public class AfterimagePlayback : MonoBehaviour
     {
+        [SerializeField] private bool loopPlayback;
+
         private List<RecordedFrame> recordedFrames = new();
         private int currentIndex;
         private float startTime;
@@ -40,7 +42,15 @@ namespace Afterimage.Afterimage
 
             if (currentIndex >= recordedFrames.Count - 1)
             {
-                isPlaying = false;
+                if (loopPlayback)
+                {
+                    currentIndex = 0;
+                    startTime = Time.time;
+                }
+                else
+                {
+                    isPlaying = false;
+                }
             }
         }
 
